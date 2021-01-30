@@ -1,0 +1,43 @@
+name: Rails test
+
+on: [push]
+
+env:
+  RAILS_ENV: test
+  DB_HOST: 127.0.0.1
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0.22
+        ports: 
+          - '3306:3306'
+        # https://github.community/t/github-actions-cannot-connect-to-mysql-service/16158/16
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_USER: user
+          MYSQL_PASSWORD: password
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+    - name: Cache gems
+      uses: actions/cache@v2
+      with:
+        path: vendor/bundle
+        key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-gems-
+    - name: Install libraries
+      run: |
+        bundle install --jobs 4 --retry 3 --path vendor/bundle
+    - name: Create DB
+      run: |
+        bundle exec rails db:create
+        bundle exec rails db:migrate
+    - name: Run Minitest
+      run: bundle exec rails test
